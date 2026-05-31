@@ -1,11 +1,10 @@
 // ============================================================
-//  OMNI SCANNER (Hardware Hacks Edition)
+//  OMNI SCANNER (Stable Edition)
 //  ESP32 + SSD1306 128x64 OLED
 // ============================================================
 //  - Escanea BLE y Wi-Fi usando el Core 0.
-//  - Escalado Dinámico de Frecuencia del CPU (240MHz -> 80MHz)
-//  - Manipulación cruda del bus I2C para controlar voltaje
-//    de contraste y modos de inversión por hardware.
+//  - Presenta Créditos separados para BLE y Wi-Fi con todos
+//    los metadatos interceptados.
 // ============================================================
 
 #include <WiFi.h>
@@ -16,7 +15,6 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include "esp32-hal-cpu.h" // Necesario para setCpuFrequencyMhz
 
 #define SCR_W 128
 #define SCR_H 64
@@ -58,11 +56,6 @@ struct Blip {
 Blip blips[15];
 int blipIdx = 0;
 
-portMUX_TYPE deviceMux = portMUX_INITIALIZER_UNLOCKED;
-
-// Flag para inyectar Inversión de Pantalla por hardware
-volatile bool flashScreen = false;
-
 // ============================================================
 //  TAREA CORE 0: ESCANEO DUAL (BLE + Wi-Fi)
 // ============================================================
@@ -72,7 +65,6 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       String macStr = advertisedDevice.getAddress().toString().c_str();
       
       bool found = false;
-      portENTER_CRITICAL(&deviceMux);
       for(int i = 0; i < totalBLE; i++) {
         if(strcmp(bleDevices[i].mac, macStr.c_str()) == 0) {
           bleDevices[i].rssi = rssi;
@@ -94,10 +86,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         }
         bleDevices[totalBLE].rssi = rssi;
         totalBLE++;
-        
-        flashScreen = true; // Activar el flash de hardware por nuevo objetivo
       }
-      portEXIT_CRITICAL(&deviceMux);
 
       float dist = map(rssi, -100, -40, 30, 2); 
       if(dist < 2) dist = 2; if(dist > 30) dist = 30;
@@ -125,9 +114,6 @@ void radioScanTask(void * parameter) {
 
     int n = WiFi.scanNetworks(false, true, false, 120); 
     if (n > 0) {
-      portENTER_CRITICAL(&deviceMux);
-      if (totalWiFi != n) flashScreen = true; // Si la cantidad de redes cambia, flashear
-      
       totalWiFi = 0; 
       for (int i = 0; i < n && i < MAX_WIFI_NETWORKS; ++i) {
         String ssidStr = WiFi.SSID(i);
@@ -153,7 +139,6 @@ void radioScanTask(void * parameter) {
         blips[blipIdx].life = 100;
         blipIdx = (blipIdx + 1) % 15;
       }
-      portEXIT_CRITICAL(&deviceMux);
       WiFi.scanDelete();
     }
     
@@ -174,30 +159,14 @@ void setup() {
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) { while (1); }
   for(int i=0; i<15; i++) blips[i].life = 0;
 
-  // Iniciar al CPU en Máximo Rendimiento (240MHz) para escaneo radio intensivo
-  setCpuFrequencyMhz(240);
-
   xTaskCreatePinnedToCore(radioScanTask, "RadioTask", 10000, NULL, 1, NULL, 0);
   stateStartTime = millis();
 }
 
 void loop() {
-  // HARDWARE HACK: Invertir pantalla físicamente por 20ms sin borrar la RAM
-  if (flashScreen) {
-    display.ssd1306_command(SSD1306_INVERTDISPLAY);
-    delay(20);
-    display.ssd1306_command(SSD1306_NORMALDISPLAY);
-    flashScreen = false;
-  }
-
   display.clearDisplay();
   
   if (currentState == STATE_RADAR) {
-    // HARDWARE HACK: Manipular registro de voltaje (0x81) del SSD1306 para pulsar el brillo
-    int contrast = 140 + 110 * sin(radarAngle * 2);
-    display.ssd1306_command(SSD1306_SETCONTRAST);
-    display.ssd1306_command(contrast);
-
     // Dibujar UI
     display.fillRect(0, 0, SCR_W, 16, SSD1306_WHITE);
     display.setTextColor(SSD1306_BLACK);
@@ -235,13 +204,6 @@ void loop() {
 
     if (millis() - stateStartTime > 12000) {
       if (totalBLE > 0 || totalWiFi > 0) {
-        // HARDWARE HACK: Bajar frecuencia de CPU a 80MHz para ahorrar batería y enfriar chip
-        setCpuFrequencyMhz(80);
-        
-        // Restaurar brillo máximo
-        display.ssd1306_command(SSD1306_SETCONTRAST);
-        display.ssd1306_command(255);
-
         currentState = totalBLE > 0 ? STATE_CREDITS_BLE : STATE_CREDITS_WIFI;
         scrollY = 64.0;
       } else {
@@ -281,8 +243,7 @@ void loop() {
         currentState = STATE_CREDITS_WIFI;
         scrollY = 64.0;
       } else {
-        portENTER_CRITICAL(&deviceMux); totalBLE = 0; portEXIT_CRITICAL(&deviceMux);
-        setCpuFrequencyMhz(240); // Restaurar máxima potencia
+        totalBLE = 0; 
         currentState = STATE_RADAR;
         stateStartTime = millis();
       }
@@ -318,8 +279,7 @@ void loop() {
     scrollY -= 0.6; 
     
     if (currentY < 0) {
-      portENTER_CRITICAL(&deviceMux); totalBLE = 0; portEXIT_CRITICAL(&deviceMux);
-      setCpuFrequencyMhz(240); // Restaurar máxima potencia
+      totalBLE = 0; 
       currentState = STATE_RADAR;
       stateStartTime = millis();
     }
