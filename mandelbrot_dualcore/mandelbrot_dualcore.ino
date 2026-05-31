@@ -31,7 +31,7 @@ volatile bool start_frame = false;
 // Función matemática intensiva (Fractal de Mandelbrot)
 // Se puede ejecutar desde cualquier núcleo pasando los límites de Y
 void calcMandelbrot(int startY, int endY) {
-  int maxIter = 25; // Reducido para mantener altos FPS
+  int maxIter = 45; // Aumentado para mayor detalle en bandas topográficas
   for (int x = 0; x < SCR_W; x++) {
     for (int y = startY; y < endY; y++) {
       float pr = 1.5 * (x - SCR_W / 2) / (0.5 * zoom * SCR_W) + moveX;
@@ -47,13 +47,16 @@ void calcMandelbrot(int startY, int endY) {
         if ((newRe * newRe + newIm * newIm) > 4) break;
       }
 
-      // Colorear (Dithering básico en 1-bit)
+      // Colorear: Bandas Topográficas (Zebra Stripes)
+      // En lugar de manchas sólidas, alternamos blanco y negro según la paridad de la iteración.
+      // Esto genera patrones psicodélicos infinitos y evita la "pantalla sólida".
       if (i == maxIter) {
-        display.drawPixel(x, y, SSD1306_WHITE); // Centro negro
-      } else if (i > maxIter / 2) {
-        if ((x + y) % 2 == 0) display.drawPixel(x, y, SSD1306_WHITE); // Borde difuminado
-      } else if (i > maxIter / 4) {
-        if ((x + y) % 4 == 0) display.drawPixel(x, y, SSD1306_WHITE); // Borde muy tenue
+        // Dentro del set de Mandelbrot: Vacio absoluto (Negro)
+      } else {
+        // Fuera del set: Bandas de cebra basadas en las iteraciones de escape
+        if (i % 2 == 0) {
+          display.drawPixel(x, y, SSD1306_WHITE);
+        }
       }
     }
   }
