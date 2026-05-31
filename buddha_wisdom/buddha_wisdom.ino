@@ -1,10 +1,10 @@
 // ============================================================
-//  BUDDHA WISDOM (Perfection of Wisdom)
+//  BUDDHA WISDOM (Avatamsaka Sutra - Español)
 //  ESP32 + SSD1306 128x64 OLED
 // ============================================================
-//  - Muestra extractos del Canon Tibetano (84000.co)
-//  - Implementa "Fade In" y "Fade Out" alterando el voltaje
-//    de contraste del chip SSD1306 por hardware.
+//  - Extractos del Avatamsaka Sutra (Vol 1-3).
+//  - Fade In y Fade Out mediante hardware (Contraste 0x81).
+//  - Soporta múltiples líneas perfectamente centradas.
 // ============================================================
 
 #include <Wire.h>
@@ -17,19 +17,15 @@
 #define OLED_ADDR  0x3C
 Adafruit_SSD1306 display(SCR_W, SCR_H, &Wire, OLED_RESET);
 
-// Extractos seleccionados de la Perfeccion de la Sabiduria (Prajnaparamita)
-// del Heart Sutra (Toh 21) y el Diamond Sutra (Toh 16).
+// Extractos seleccionados del Avatamsaka Sutra traducidos al español
 const char* sutras[] = {
-  "Form is empty;\nemptiness is form.",
-  "Emptiness is not\nother than form;",
-  "form is not\nother than emptiness.",
-  "So you should view\nthis fleeting world:",
-  "A star at dawn,\na bubble in a stream,",
-  "A flash of lightning\nin a summer cloud.",
-  "Gate gate,\nparagate,",
-  "parasamgate,\nbodhi svaha."
+  "Si deseas comprender\na todos los Budas,\ndebes contemplar que\ntodo es creado\nsolo por la mente.",
+  "La mente es como\nun pintor habil,\nconstruyendo todos\nlos reinos mundanos.",
+  "En cada atomo,\nse encuentran\nincontables mundos\ny Budas enseñando.",
+  "No hay diferencia\nentre la mente,\nlos seres sintientes\ny el Buda.",
+  "Asi como el sol\nilumina el mundo,\nla sabiduria brilla\npara todos por igual"
 };
-const int totalVerses = 8;
+const int totalVerses = 5;
 
 void setContrast(uint8_t contrast) {
   display.ssd1306_command(SSD1306_SETCONTRAST);
@@ -45,7 +41,7 @@ void setup() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setTextWrap(false);
-  setContrast(0); // Empezar con el hardware oscurecido
+  setContrast(0);
   display.clearDisplay();
   display.display();
 }
@@ -53,63 +49,57 @@ void setup() {
 void loop() {
   for (int i = 0; i < totalVerses; i++) {
     
-    // Preparar el buffer de la pantalla en total oscuridad
     display.clearDisplay();
     setContrast(0);
     
-    // Calcular el centrado del texto
     String text = sutras[i];
-    int breakIdx = text.indexOf('\n');
-    String line1 = text;
-    String line2 = "";
+    String lines[6];
+    int lineCount = 0;
+    int start = 0;
     
-    if (breakIdx != -1) {
-      line1 = text.substring(0, breakIdx);
-      line2 = text.substring(breakIdx + 1);
+    // Separar el string por saltos de linea
+    for(int j=0; j<text.length(); j++) {
+      if(text.charAt(j) == '\n' || j == text.length()-1) {
+        if(j == text.length()-1) lines[lineCount++] = text.substring(start);
+        else lines[lineCount++] = text.substring(start, j);
+        start = j + 1;
+        if(lineCount == 6) break;
+      }
     }
 
-    int16_t x1, y1; uint16_t w1, h1;
-    display.getTextBounds(line1, 0, 0, &x1, &y1, &w1, &h1);
-    // Centrar en el eje Y dependiendo de si hay una o dos lineas
-    display.setCursor((SCR_W - w1) / 2, (SCR_H / 2) - (line2.length() > 0 ? 8 : 4));
-    display.print(line1);
-
-    if (line2.length() > 0) {
-      int16_t x2, y2; uint16_t w2, h2;
-      display.getTextBounds(line2, 0, 0, &x2, &y2, &w2, &h2);
-      display.setCursor((SCR_W - w2) / 2, (SCR_H / 2) + 4);
-      display.print(line2);
+    // Dibujar cada linea centrada
+    int totalHeight = lineCount * 12; // 8px font + 4px interlineado
+    int currentY = (SCR_H - totalHeight) / 2 + 2; // +2 compensacion optica
+    
+    for(int j=0; j<lineCount; j++) {
+      int16_t x, y; uint16_t w, h;
+      display.getTextBounds(lines[j], 0, 0, &x, &y, &w, &h);
+      display.setCursor((SCR_W - w) / 2, currentY);
+      display.print(lines[j]);
+      currentY += 12;
     }
     
-    // Enviar a la RAM (Aun no se ve nada porque el contraste es 0)
     display.display();
 
-    // ----------------------------------------------------
-    //  EFECTO: Fade-In (Aparicion meditativa por voltaje)
-    // ----------------------------------------------------
+    // Fade-In de hardware
     for (int c = 0; c <= 255; c += 2) {
       setContrast(c);
-      delay(15); // Transicion muy suave
+      delay(15);
     }
     setContrast(255);
     
-    // Tiempo de lectura
-    delay(4500);
+    // Tiempo de meditacion
+    delay(5000);
     
-    // ----------------------------------------------------
-    //  EFECTO: Fade-Out (Desvanecimiento en el vacio)
-    // ----------------------------------------------------
+    // Fade-Out de hardware
     for (int c = 255; c >= 0; c -= 2) {
       setContrast(c);
       delay(15);
     }
     setContrast(0);
     
-    // Limpiar RAM fisica para asegurar negro total
     display.clearDisplay();
     display.display();
-    
-    // Pausa en la nada absoluta
     delay(1500);
   }
 }
