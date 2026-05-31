@@ -24,6 +24,9 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 - 🌐 **web_canvas**: El ESP32 funciona como Servidor Web y Punto de Acceso (AP). Dibuja desde el navegador de tu celular y míralo aparecer en el OLED al instante.
 - 📈 **crypto_ticker**: Monitor del precio de Bitcoin en vivo consumiendo la API JSON pública de Binance vía cliente Wi-Fi.
 
+### Arte y Meditación
+- 📿 **buddha_wisdom**: Exposición minimalista y solemne de textos del Canon Tibetano (Prajñāpāramitā). Emplea atenuación por hardware puro para que las palabras aparezcan y se desvanezcan en un vacío absoluto.
+
 ## 🛠️ Hardware Necesario
 - Placa de desarrollo **ESP32** (NodeMCU, WROOM, etc).
 - Pantalla **OLED SSD1306 (128x64)** conectada por I2C (SDA, SCL).
