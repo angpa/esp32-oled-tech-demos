@@ -19,7 +19,8 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 - 🧠 **mandelbrot_dualcore**: Renderizador del fractal de Mandelbrot que exprime **ambos núcleos** del ESP32 simultáneamente mediante FreeRTOS, duplicando la velocidad.
 
 ### Redes e IoT (Wi-Fi y Bluetooth)
-- 📡 **radar_ble**: Escáner de dispositivos Bluetooth Low Energy (BLE) utilizando doble núcleo para escanear y dibujar el radar en tiempo real.
+- 📡 **omni_scanner**: Escáner de Espectro dual (Wi-Fi + BLE). Atrapa redes ocultas y dispositivos Bluetooth en el aire y los despliega en una interfaz cinematográfica.
+- 📡 **radar_ble**: Escáner de dispositivos Bluetooth Low Energy (BLE) utilizando doble núcleo.
 - 🌐 **web_canvas**: El ESP32 funciona como Servidor Web y Punto de Acceso (AP). Dibuja desde el navegador de tu celular y míralo aparecer en el OLED al instante.
 - 📈 **crypto_ticker**: Monitor del precio de Bitcoin en vivo consumiendo la API JSON pública de Binance vía cliente Wi-Fi.
 
