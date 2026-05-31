@@ -1,12 +1,11 @@
 // ============================================================
-//  OMNI SCANNER (BLE + Wi-Fi)
+//  OMNI SCANNER (Hardware Hacks Edition)
 //  ESP32 + SSD1306 128x64 OLED
 // ============================================================
-//  - Escanea dispositivos Bluetooth y redes Wi-Fi (incluidas
-//    las ocultas) alternando el uso de la radio en el Core 0.
-//  - Muestra un Radar que fusiona ambos mundos.
-//  - Presenta Créditos separados para BLE y Wi-Fi con todos
-//    los metadatos interceptados (MAC, Canal, Señal, etc).
+//  - Escanea BLE y Wi-Fi usando el Core 0.
+//  - Escalado Dinámico de Frecuencia del CPU (240MHz -> 80MHz)
+//  - Manipulación cruda del bus I2C para controlar voltaje
+//    de contraste y modos de inversión por hardware.
 // ============================================================
 
 #include <WiFi.h>
@@ -17,6 +16,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "esp32-hal-cpu.h" // Necesario para setCpuFrequencyMhz
 
 #define SCR_W 128
 #define SCR_H 64
@@ -25,7 +25,7 @@
 Adafruit_SSD1306 display(SCR_W, SCR_H, &Wire, OLED_RESET);
 
 // ============================================================
-//  ESTRUCTURAS DE DATOS (Compartidas)
+//  DATOS COMPARTIDOS ENTRE NÚCLEOS
 // ============================================================
 #define MAX_BLE_DEVICES 60
 #define MAX_WIFI_NETWORKS 40
@@ -60,6 +60,9 @@ int blipIdx = 0;
 
 portMUX_TYPE deviceMux = portMUX_INITIALIZER_UNLOCKED;
 
+// Flag para inyectar Inversión de Pantalla por hardware
+volatile bool flashScreen = false;
+
 // ============================================================
 //  TAREA CORE 0: ESCANEO DUAL (BLE + Wi-Fi)
 // ============================================================
@@ -91,10 +94,11 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         }
         bleDevices[totalBLE].rssi = rssi;
         totalBLE++;
+        
+        flashScreen = true; // Activar el flash de hardware por nuevo objetivo
       }
       portEXIT_CRITICAL(&deviceMux);
 
-      // Blip Radar
       float dist = map(rssi, -100, -40, 30, 2); 
       if(dist < 2) dist = 2; if(dist > 30) dist = 30;
       blips[blipIdx].angle = radarAngle;
@@ -105,28 +109,26 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 };
 
 void radioScanTask(void * parameter) {
-  // Init BLE
   BLEDevice::init("");
   BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   pBLEScan->setActiveScan(true);
   
-  // Init Wi-Fi
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
 
   while(true) {
-    // 1. Escanear BLE por 2 segundos
     pBLEScan->start(2, false); 
     pBLEScan->clearResults(); 
     
     vTaskDelay(50 / portTICK_PERIOD_MS); 
 
-    // 2. Escanear Wi-Fi (incluyendo ocultas = true)
     int n = WiFi.scanNetworks(false, true, false, 120); 
     if (n > 0) {
       portENTER_CRITICAL(&deviceMux);
-      totalWiFi = 0; // Refrescar lista de Wi-Fi en cada barrido
+      if (totalWiFi != n) flashScreen = true; // Si la cantidad de redes cambia, flashear
+      
+      totalWiFi = 0; 
       for (int i = 0; i < n && i < MAX_WIFI_NETWORKS; ++i) {
         String ssidStr = WiFi.SSID(i);
         if(ssidStr.length() == 0) ssidStr = "<RED OCULTA>";
@@ -143,7 +145,6 @@ void radioScanTask(void * parameter) {
         wifiNetworks[totalWiFi].enc = WiFi.encryptionType(i);
         totalWiFi++;
         
-        // Agregar un blip de Wi-Fi desfasado aleatoriamente para el radar
         float dist = map(WiFi.RSSI(i), -100, -30, 30, 2);
         if(dist < 2) dist = 2; if(dist > 30) dist = 30;
         float rAngle = radarAngle + (random(-100, 100) / 100.0);
@@ -153,7 +154,7 @@ void radioScanTask(void * parameter) {
         blipIdx = (blipIdx + 1) % 15;
       }
       portEXIT_CRITICAL(&deviceMux);
-      WiFi.scanDelete(); // Liberar memoria RAM interna del Wi-Fi
+      WiFi.scanDelete();
     }
     
     vTaskDelay(50 / portTICK_PERIOD_MS); 
@@ -173,19 +174,31 @@ void setup() {
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) { while (1); }
   for(int i=0; i<15; i++) blips[i].life = 0;
 
-  xTaskCreatePinnedToCore(
-    radioScanTask, "RadioTask", 10000, NULL, 1, NULL, 0
-  );
+  // Iniciar al CPU en Máximo Rendimiento (240MHz) para escaneo radio intensivo
+  setCpuFrequencyMhz(240);
+
+  xTaskCreatePinnedToCore(radioScanTask, "RadioTask", 10000, NULL, 1, NULL, 0);
   stateStartTime = millis();
 }
 
 void loop() {
+  // HARDWARE HACK: Invertir pantalla físicamente por 20ms sin borrar la RAM
+  if (flashScreen) {
+    display.ssd1306_command(SSD1306_INVERTDISPLAY);
+    delay(20);
+    display.ssd1306_command(SSD1306_NORMALDISPLAY);
+    flashScreen = false;
+  }
+
   display.clearDisplay();
   
   if (currentState == STATE_RADAR) {
-    // ----------------------------------------------------
-    //  FASE 1: RADAR (12 segundos)
-    // ----------------------------------------------------
+    // HARDWARE HACK: Manipular registro de voltaje (0x81) del SSD1306 para pulsar el brillo
+    int contrast = 140 + 110 * sin(radarAngle * 2);
+    display.ssd1306_command(SSD1306_SETCONTRAST);
+    display.ssd1306_command(contrast);
+
+    // Dibujar UI
     display.fillRect(0, 0, SCR_W, 16, SSD1306_WHITE);
     display.setTextColor(SSD1306_BLACK);
     display.setTextSize(1);
@@ -198,7 +211,6 @@ void loop() {
     display.setCursor(2, 38);
     display.print(F("BLE:  ")); display.print(totalBLE);
 
-    // Dibujar radar
     int cx = 94, cy = 40, r = 22;
     display.drawCircle(cx, cy, r, SSD1306_WHITE);
     display.drawCircle(cx, cy, r/2, SSD1306_WHITE);
@@ -213,9 +225,7 @@ void loop() {
       if(blips[i].life > 0) {
         int bx = cx + cos(blips[i].angle) * blips[i].dist;
         int by = cy + sin(blips[i].angle) * blips[i].dist;
-        if(blips[i].life > 50 || (blips[i].life % 4 < 2)) {
-          display.fillCircle(bx, by, 2, SSD1306_WHITE);
-        }
+        if(blips[i].life > 50 || (blips[i].life % 4 < 2)) display.fillCircle(bx, by, 2, SSD1306_WHITE);
         blips[i].life--;
       }
     }
@@ -223,13 +233,16 @@ void loop() {
     radarAngle += 0.05;
     if(radarAngle > 6.2831) radarAngle -= 6.2831;
 
-    // Cambiar de estado
     if (millis() - stateStartTime > 12000) {
-      if (totalBLE > 0) {
-        currentState = STATE_CREDITS_BLE;
-        scrollY = 64.0;
-      } else if (totalWiFi > 0) {
-        currentState = STATE_CREDITS_WIFI;
+      if (totalBLE > 0 || totalWiFi > 0) {
+        // HARDWARE HACK: Bajar frecuencia de CPU a 80MHz para ahorrar batería y enfriar chip
+        setCpuFrequencyMhz(80);
+        
+        // Restaurar brillo máximo
+        display.ssd1306_command(SSD1306_SETCONTRAST);
+        display.ssd1306_command(255);
+
+        currentState = totalBLE > 0 ? STATE_CREDITS_BLE : STATE_CREDITS_WIFI;
         scrollY = 64.0;
       } else {
         stateStartTime = millis();
@@ -237,9 +250,6 @@ void loop() {
     }
   } 
   else if (currentState == STATE_CREDITS_BLE) {
-    // ----------------------------------------------------
-    //  FASE 2: CRÉDITOS BLE
-    // ----------------------------------------------------
     display.setTextColor(SSD1306_WHITE);
     int currentY = (int)scrollY;
     
@@ -253,9 +263,7 @@ void loop() {
       if (currentY > -20 && currentY < 64) {
         display.setCursor(0, currentY);
         if(strlen(bleDevices[i].name) > 0) {
-          char shortName[16];
-          strncpy(shortName, bleDevices[i].name, 15);
-          shortName[15] = '\0';
+          char shortName[16]; strncpy(shortName, bleDevices[i].name, 15); shortName[15] = '\0';
           display.print(shortName);
         } else {
           display.print(bleDevices[i].mac);
@@ -273,19 +281,14 @@ void loop() {
         currentState = STATE_CREDITS_WIFI;
         scrollY = 64.0;
       } else {
-        // Limpiar
-        portENTER_CRITICAL(&deviceMux);
-        totalBLE = 0;
-        portEXIT_CRITICAL(&deviceMux);
+        portENTER_CRITICAL(&deviceMux); totalBLE = 0; portEXIT_CRITICAL(&deviceMux);
+        setCpuFrequencyMhz(240); // Restaurar máxima potencia
         currentState = STATE_RADAR;
         stateStartTime = millis();
       }
     }
   }
   else if (currentState == STATE_CREDITS_WIFI) {
-    // ----------------------------------------------------
-    //  FASE 3: CRÉDITOS WI-FI
-    // ----------------------------------------------------
     display.setTextColor(SSD1306_WHITE);
     int currentY = (int)scrollY;
     
@@ -297,37 +300,26 @@ void loop() {
     
     for(int i = 0; i < totalWiFi; i++) {
       if (currentY > -28 && currentY < 64) {
-        // Línea 1: SSID o MAC si está oculto
         display.setCursor(0, currentY);
-        char shortName[16];
-        strncpy(shortName, wifiNetworks[i].ssid, 15);
-        shortName[15] = '\0';
+        char shortName[16]; strncpy(shortName, wifiNetworks[i].ssid, 15); shortName[15] = '\0';
         display.print(shortName);
-        
         display.setCursor(104, currentY);
         display.print(wifiNetworks[i].rssi);
         
-        // Línea 2: Metadatos (CH y Encriptación básica / BSSID truncado)
         display.setCursor(0, currentY + 10);
         display.print(F("CH:")); display.print(wifiNetworks[i].channel);
         display.print(F(" MAC:"));
-        char shortMac[9];
-        strncpy(shortMac, wifiNetworks[i].bssid + 9, 8); // Mostrar ultima parte de MAC
-        shortMac[8] = '\0';
+        char shortMac[9]; strncpy(shortMac, wifiNetworks[i].bssid + 9, 8); shortMac[8] = '\0';
         display.print(shortMac);
       }
-      currentY += 24; // Ocupa doble espacio
+      currentY += 24; 
     }
 
     scrollY -= 0.6; 
     
     if (currentY < 0) {
-      // Limpiar memoria
-      portENTER_CRITICAL(&deviceMux);
-      totalBLE = 0;
-      // WiFi se limpia solo en cada barrido
-      portEXIT_CRITICAL(&deviceMux);
-      
+      portENTER_CRITICAL(&deviceMux); totalBLE = 0; portEXIT_CRITICAL(&deviceMux);
+      setCpuFrequencyMhz(240); // Restaurar máxima potencia
       currentState = STATE_RADAR;
       stateStartTime = millis();
     }
