@@ -20,6 +20,8 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 ### Física y Simulaciones
 - ⏳ **falling_sand**: Simulación de física de partículas 2D de arena cayendo y reaccionando a colisiones (Autómatas Celulares).
 - 🧠 **mandelbrot_dualcore**: Renderizador del fractal de Mandelbrot que exprime **ambos núcleos** del ESP32 simultáneamente mediante FreeRTOS, duplicando la velocidad.
+- 🦅 **flocking_boids**: Simulación de inteligencia artificial colectiva y comportamiento de bandada (120 boids + depredador) acelerada mediante un árbol Quadtree estático.
+
 
 ### Redes e IoT (Wi-Fi y Bluetooth)
 - 📡 **omni_scanner**: Escáner de Espectro dual (Wi-Fi + BLE). Atrapa redes ocultas y dispositivos Bluetooth en el aire y los despliega en una interfaz cinematográfica.
