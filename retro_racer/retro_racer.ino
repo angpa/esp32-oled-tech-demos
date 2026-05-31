@@ -41,7 +41,7 @@ static int t15Base = -1;
 #define SEG_LEN    200.0f    // Longitud de cada segmento (unidades mundo)
 #define ROAD_HW    120.0f    // Semi-ancho de la carretera (proyección)
 #define DRAW_DIST  70        // Segmentos renderizados hacia adelante
-#define CAM_DEPTH  80.0f     // FOV más amplio = mayor sensación de velocidad
+#define CAM_DEPTH  100.0f    // Profundidad de cámara (controla el FOV)
 #define CAM_H      80.0f     // Altura de cámara sobre la superficie
 
 struct Seg { float curve, y; };
