@@ -8,6 +8,10 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 - 🌌 **space_shooter**: El clásico juego de navecitas espaciales con partículas dinámicas y fondos optimizados.
 - 🥷 **stick_fight**: Motor de animación por keyframes de peleas de muñecos de palo (estilo Xiaoxiao) con coreografía programada.
 - 🏎️ **retro_racer**: Juego de carreras pseudo-3D estilo OutRun/Pole Position con pista procedural (curvas, colinas), rumble strips, tráfico, árboles laterales y controles por sensor táctil capacitivo (GPIO 4 y 15).
+- 🚀 **lunar_lander**: Simulador de alunizaje vectorial con físicas newtonianas (gravedad, inercia), partículas de propulsión y controles táctiles dobles.
+- 🦖 **dino_runner**: Clon del clásico juego de Chrome con scroll parallax, obstáculos procedurales y mecánicas de salto/agacharse vía sensores capacitivos.
+- 🏓 **softbody_pong**: Pong con físicas de Integración de Verlet. La pelota es una masa de gelatina deformable de 4 nodos que rebota y se aplasta de forma realista.
+- 🚁 **swing_copter**: Arcade estilo Swing Copter dentro de una caverna infinita procedural con gravedad constante y físicas inerciales.
 
 ### Gráficos 3D y Demoscene
 - 🧭 **doom_raycaster**: Labyrinth Explorer. Motor 3D en primera persona con rejilla de perspectiva 3D Holodeck, skybox rotatorio, ventanas transparentes y autopiloto predictivo inteligente.
