@@ -21,6 +21,8 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 - ⏳ **falling_sand**: Simulación de física de partículas 2D de arena cayendo y reaccionando a colisiones (Autómatas Celulares).
 - 🧠 **mandelbrot_dualcore**: Renderizador del fractal de Mandelbrot que exprime **ambos núcleos** del ESP32 simultáneamente mediante FreeRTOS, duplicando la velocidad.
 - 🦅 **flocking_boids**: Simulación de inteligencia artificial colectiva y comportamiento de bandada (120 boids + depredador) acelerada mediante un árbol Quadtree estático.
+- 🪢 **verlet_physics**: Caja de arena física (Verlet Integration) interactiva con péndulo, cubo de gelatina deformable, puente y controles por sensor táctil capacitivo nativo (GPIO 4 y 15).
+
 
 
 ### Redes e IoT (Wi-Fi y Bluetooth)
