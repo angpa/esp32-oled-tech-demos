@@ -41,7 +41,7 @@ static int t15Base = -1;
 #define SEG_LEN    200.0f    // Longitud de cada segmento (unidades mundo)
 #define ROAD_HW    120.0f    // Semi-ancho de la carretera (proyección)
 #define DRAW_DIST  70        // Segmentos renderizados hacia adelante
-#define CAM_DEPTH  100.0f    // Profundidad de cámara (controla el FOV)
+#define CAM_DEPTH  80.0f     // FOV más amplio = mayor sensación de velocidad
 #define CAM_H      80.0f     // Altura de cámara sobre la superficie
 
 struct Seg { float curve, y; };
@@ -59,14 +59,14 @@ struct RTree { int seg; float side; };
 RTree trees[N_TREES];
 
 // ── Vehículos de Tráfico ───────────────────────────
-#define N_TRAFFIC 3
+#define N_TRAFFIC 8
 struct Traf { float z, lane, spd; };
 Traf traf[N_TRAFFIC];
 
 // ── Estado del Juego ───────────────────────────────
 float pX       = 0.0f;    // Posición lateral (-1..1 = bordes de pista)
 float spd      = 0.0f;    // Velocidad actual (unidades mundo / frame)
-float maxSpd   = 10.0f;   // Velocidad máxima alcanzable
+float maxSpd   = 22.0f;   // Velocidad máxima alcanzable
 float pos      = 0.0f;    // Distancia recorrida (posición Z mundial)
 uint32_t score = 0;        // Distancia en metros para el marcador
 uint32_t fCnt  = 0;        // Contador de frames
@@ -102,9 +102,9 @@ void buildTrack() {
 
   // Coches de tráfico a esquivar
   for (int i = 0; i < N_TRAFFIC; i++) {
-    traf[i].z    = (float)(40 + i * 60) * SEG_LEN;
-    traf[i].lane = random(2) ? 0.4f : -0.4f;
-    traf[i].spd  = 3.0f + random(30) * 0.1f;
+    traf[i].z    = (float)(30 + i * 35) * SEG_LEN; // Más juntos
+    traf[i].lane = random(2) ? 0.45f : -0.45f;
+    traf[i].spd  = 4.0f + random(40) * 0.1f;
   }
 
   // Silueta de montañas en el horizonte
@@ -179,10 +179,10 @@ void loop() {
   // Velocidad: auto-aceleración con frenado sobre pasto
   bool offRoad = (pX < -1.0f || pX > 1.0f);
   if (offRoad) {
-    spd -= 0.1f;
-    if (spd < 1.0f) spd = 1.0f;
+    spd -= 0.3f; // Frenado más fuerte en el pasto
+    if (spd < 2.0f) spd = 2.0f;
   } else {
-    spd += 0.06f;
+    spd += 0.15f; // Mayor aceleración
     if (spd > maxSpd) spd = maxSpd;
   }
   pos += spd;
@@ -192,8 +192,8 @@ void loop() {
   for (int i = 0; i < N_TRAFFIC; i++) {
     traf[i].z += traf[i].spd;
     if (traf[i].z < pos - 500 || pos > traf[i].z + 300) {
-      traf[i].z    = pos + (float)random(30, 70) * SEG_LEN;
-      traf[i].lane = random(2) ? 0.4f : -0.4f;
+      traf[i].z    = pos + (float)random(20, 50) * SEG_LEN; // Respawn más cercano y frecuente
+      traf[i].lane = random(2) ? 0.45f : -0.45f;
     }
   }
 
@@ -361,12 +361,14 @@ void loop() {
     }
   }
 
-  // Líneas de velocidad a alta velocidad
-  if (spd > 6.0f) {
-    for (int i = 0; i < 3; i++) {
-      int lx = (fCnt * 7 + i * 43) % SCR_W;
-      int ly = 28 + (fCnt * 3 + i * 19) % 20;
-      int ll = 2 + (int)(spd - 6.0f);
+  // Líneas de velocidad hiper-rápidas
+  if (spd > 8.0f) {
+    for (int i = 0; i < 8; i++) {
+      int lx = (fCnt * (8 + i%3) + i * 37) % SCR_W;
+      int ly = 10 + (fCnt * 4 + i * 23) % 44;
+      // Evitar pintar líneas sobre el auto del jugador para mayor claridad
+      if (lx > 40 && lx < 88 && ly > 40) continue;
+      int ll = 4 + (int)((spd - 8.0f) * 1.5f);
       display.drawFastHLine(lx, ly, ll, SSD1306_WHITE);
     }
   }
@@ -379,7 +381,7 @@ void loop() {
 
   // Velocidad en km/h simulados
   display.setCursor(1, SCR_H - 7);
-  display.print((int)(spd * 28.0f));
+  display.print((int)(spd * 12.0f)); // Multiplicador ajustado a la nueva velocidad máxima
   display.print(F("km"));
 
   // Barra de velocímetro analógica
