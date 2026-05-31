@@ -14,6 +14,8 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 - ⛰️ **terrain_3d**: Simulador de vuelo 3D continuo sobre un valle infinito con montañas sólidas (Painter's Algorithm), estrellas, sol retro, ladeo de nave (banking) y HUD táctico.
 - 💻 **matrix_3d**: Generación de un túnel cilíndrico en 3D en perspectiva con los caracteres descendentes de The Matrix.
 - 🎹 **chiptune_synth**: Generador de sonido retro de 3 canales (16kHz) sobre el DAC nativo, con analizador FFT en tiempo real y terreno 3D reactivo a las frecuencias de la música.
+- 🌀 **raymarching_3d**: Renderizador de píxeles por Raymarching 3D en doble núcleo con metaballs líquidas (smooth blend), optimización Bounding Sphere y sombreado retro dithered de 1 bit.
+
 
 ### Física y Simulaciones
 - ⏳ **falling_sand**: Simulación de física de partículas 2D de arena cayendo y reaccionando a colisiones (Autómatas Celulares).
