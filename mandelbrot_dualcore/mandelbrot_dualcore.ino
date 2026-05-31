@@ -24,6 +24,17 @@ float zoom = 1.0;
 float moveX = -0.5, moveY = 0.0;
 float zoomDir = 1.05;
 
+// Coordenadas matemáticas de regiones infinitamente complejas
+struct FractalPoint { float x; float y; };
+FractalPoint coolSpots[] = {
+  {-0.74364388, 0.13182590},  // Valle de los Caballitos de Mar
+  {-0.16295300, 1.04013300},  // Bulbo Superior
+  {-1.25066000, 0.02012000},  // Valle del Cetro Profundo
+  {-0.11954519, 0.85293214},  // Espiral Topográfica
+  {-1.41702228, 0.00995340},  // Estrella de Mar
+  {-0.04524074, 0.98681622}   // Minibrot
+};
+
 // Sincronización entre núcleos
 volatile bool core0_done = true;
 volatile bool start_frame = false;
@@ -134,8 +145,9 @@ void loop() {
     zoomDir = 0.95; // Empezar a alejar
   } else if (zoom < 1.0) {
     zoomDir = 1.05; // Empezar a acercar
-    // Cambiar objetivo aleatoriamente
-    moveX = -0.5 + (random(-20, 20) / 100.0);
-    moveY = 0.0 + (random(-20, 20) / 100.0);
+    // Teletransportar la cámara a una de las regiones de detalle infinito garantizado
+    int r = random(6);
+    moveX = coolSpots[r].x;
+    moveY = coolSpots[r].y;
   }
 }
