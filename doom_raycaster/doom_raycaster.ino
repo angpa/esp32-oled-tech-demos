@@ -1,14 +1,18 @@
 // ============================================================
-//  LABYRINTH EXPLORER 3D (Refined Raycaster Engine)
+//  LABYRINTH EXPLORER 3D (Expert Graphics Version)
 //  ESP32 + SSD1306 128x64 OLED
 // ============================================================
-//  - Motor de Raycasting 3D a pantalla completa optimizado (FPU).
-//  - Texturas procedimentales detalladas (ladrillo, columnas, puerta).
-//  - Paredes con Ventanas de Transparencia Real (traspaso visual).
-//  - Skybox estrellado rotatorio sincronizado con el giro del explorador.
-//  - Autopiloto predictivo inteligente (gira suavemente antes de chocar).
-//  - Barra de telemetría inferior (Coordenadas POS y rumbo HDG en grados).
-//  - Mini-mapa radar superpuesto en la esquina superior derecha.
+//  - Motor de Raycasting 3D con perspectiva ampliada (54px).
+//  - Rejilla 3D Holodeck en Suelo y Techo: Líneas horizontales de
+//    avance y radiales de inclinación que rotan con la cámara.
+//  - Oclusión total: Muros sólidos se dibujan encima de la rejilla.
+//  - Texturizado HD procedimental con efectos avanzados:
+//    - Ladrillos con rugosidad de piedra (dithering interno).
+//    - Ventana con reflejo de cristal diagonal (vidrio reflectivo).
+//    - Columnas con veteado de madera y puertas con remaches metálicos.
+//  - Autopiloto predictivo inteligente que detecta esquinas.
+//  - Telemetría inferior con osciloscopio animado en tiempo real.
+//  - Radar mini-mapa con vector de mira/dirección del jugador.
 // ============================================================
 
 #include <Wire.h>
@@ -57,7 +61,7 @@ float star_x[num_stars];
 float star_y[num_stars];
 
 // ============================================================
-//  TEXTURIZADO PROCEDIMENTAL DE PAREDES
+//  TEXTURIZADO PROCEDIMENTAL DE PAREDES (Alta Fidelidad)
 // ============================================================
 bool getWallPixel(int wallType, int texX, int texY, int side) {
   // Sombreado direccional para el eje Y (muros oscurecidos con tramado)
@@ -66,32 +70,44 @@ bool getWallPixel(int wallType, int texX, int texY, int side) {
   }
   
   if (wallType == 1) {
-    // 1. TEXTURA DE LADRILLO
+    // 1. TEXTURA DE LADRILLO CON RUGOSIDAD
     if (texY == 0 || texY == 8) return true; // Juntas horizontales
     if (texY < 8) {
-      if (texX == 0 || texX == 8) return true; // Juntas verticales
+      if (texX == 0 || texX == 8) return true; // Juntas verticales fila superior
     } else {
-      if (texX == 4 || texX == 12) return true;
+      if (texX == 4 || texX == 12) return true; // Juntas verticales fila inferior
     }
+    // Rugosidad de la piedra (tramado interno)
+    if ((texX + texY) % 4 == 0) return true;
     return false;
   } 
   else if (wallType == 2) {
-    // 2. MARCO DE VENTANA (Los paneles internos son transparentes por fuera de estas líneas)
-    if (texX == 0 || texX == 15 || texY == 0 || texY == 15) return true;
-    if (texX == 8 || texY == 8) return true;
+    // 2. MARCO DE VENTANA Y REFLEJO DIAGONAL
+    if (texX == 0 || texX == 15 || texY == 0 || texY == 15) return true; // Marco exterior
+    if (texX == 8 || texY == 8) return true; // Cruceta central
+    // Reflejo diagonal de cristal punteado
+    if (texX == texY && (texX % 3 == 0)) return true;
     return false;
   } 
   else if (wallType == 3) {
-    // 3. COLUMNAS DE SOPORTE
+    // 3. COLUMNAS DE MADERA CON VETEADO
     if (texY == 0 || texY == 15) return true;
-    if (texX == 0 || texX == 4 || texX == 11 || texX == 15) return true;
+    if (texX == 0 || texX == 4 || texX == 11 || texX == 15) return true; // Ranuras de soporte
+    // Vetado horizontal de madera
+    if (texY % 3 == 0 && (texX % 2 == 0)) return true;
     return false;
   }
   else if (wallType == 4) {
-    // 4. PUERTA REFORZADA
-    if (texX <= 1 || texX >= 14 || texY <= 1 || texY >= 14) return true; // Marco grueso
-    if (texX == 7 || texX == 8) return true; // Ranura central
+    // 4. PUERTA SCI-FI CON REMACHES Y LECTOR
+    if (texX <= 1 || texX >= 14 || texY <= 1 || texY >= 14) {
+      // Remaches/tornillos de esquina
+      if ((texX == 1 || texX == 14) && (texY % 4 == 0)) return true;
+      return true; // Marco grueso
+    }
+    if (texX == 7 || texX == 8) return true; // Junta central de apertura
     if ((texX == 11 || texX == 12) && texY == 9) return true; // Picaporte
+    // Lector de tarjetas de acceso (izquierda)
+    if (texX == 4 && (texY == 5 || texY == 6)) return true;
     return false;
   }
   return true;
@@ -109,7 +125,7 @@ void setup() {
   // Inicialización del cielo estrellado
   for (int i = 0; i < num_stars; i++) {
     star_x[i] = random(0, 128);
-    star_y[i] = random(2, 25);
+    star_y[i] = random(2, 24);
   }
   display.clearDisplay();
 }
@@ -120,10 +136,11 @@ void setup() {
 void loop() {
   display.clearDisplay();
 
-  // 1. Dibujar Cielo Estrellado Giratorio (sincronizado con ángulo de cámara)
+  // Ángulo de la cámara y desplazamiento del cielo
   float playerAngle = atan2(dirY, dirX);
   int skyOffset = (int)((playerAngle / (2.0f * 3.14159265f)) * 128.0f);
-  
+
+  // 1. Dibujar Cielo Estrellado Giratorio
   for (int i = 0; i < num_stars; i++) {
     int sx = (int)(star_x[i]) + skyOffset;
     sx = (sx % SCR_W + SCR_W) % SCR_W; // Wrap horizontal
@@ -134,13 +151,69 @@ void loop() {
     }
   }
 
-  // 2. Dibujar línea del horizonte punteada (se ve a través de las ventanas)
+  // 2. Dibujar línea del horizonte punteada (visible a través de ventanas)
   for (int x = 0; x < SCR_W; x += 2) {
     display.drawPixel(x, 27, SSD1306_WHITE);
   }
 
   // ==========================================
-  //  3. RENDERIZADO 3D CON RAYCASTING (54px)
+  //  REJILLA 3D HOLODECK (Suelo y Techo Vectorial)
+  // ==========================================
+  // A. Líneas Horizontales de Scroll (Avanzan al caminar)
+  float travel_dist = posX * dirX + posY * dirY;
+  float frac_travel = travel_dist - floor(travel_dist);
+  if (frac_travel < 0.0f) frac_travel += 1.0f;
+  
+  for (int j = 1; j <= 5; j++) {
+    float d = j - frac_travel;
+    if (d < 0.1f) d = 0.1f;
+    
+    int dy = (int)(27.0f / d); // Distancia proyectada desde el horizonte (27)
+    
+    int y_floor = 27 + dy;
+    int y_ceil = 27 - dy;
+    
+    // Dibujar líneas horizontales punteadas
+    if (y_floor < 54) {
+      for (int x = 0; x < SCR_W; x += 4) {
+        display.drawPixel(x, y_floor, SSD1306_WHITE);
+      }
+    }
+    if (y_ceil >= 0) {
+      for (int x = 0; x < SCR_W; x += 4) {
+        display.drawPixel(x, y_ceil, SSD1306_WHITE);
+      }
+    }
+  }
+
+  // B. Líneas Radiales de Perspectiva (Fugantes giratorias)
+  int spacing = 24;
+  int radialOffset = skyOffset % spacing;
+  
+  for (int x_edge = -spacing; x_edge < SCR_W + spacing; x_edge += spacing) {
+    int px_bottom = x_edge - radialOffset;
+    int px_top = x_edge - radialOffset;
+    
+    // Trazar radial del suelo (punteada)
+    for (int y = 28; y < 54; y += 2) {
+      float factor = (y - 27) / 26.0f;
+      int lx = SCR_W / 2 + (int)(factor * (px_bottom - SCR_W / 2));
+      if (lx >= 0 && lx < SCR_W) {
+        display.drawPixel(lx, y, SSD1306_WHITE);
+      }
+    }
+    // Trazar radial del techo (punteada)
+    for (int y = 0; y < 27; y += 2) {
+      float factor = (27 - y) / 27.0f;
+      int lx = SCR_W / 2 + (int)(factor * (px_top - SCR_W / 2));
+      if (lx >= 0 && lx < SCR_W) {
+        display.drawPixel(lx, y, SSD1306_WHITE);
+      }
+    }
+  }
+
+  // ==========================================
+  //  3. MOTOR RAYCASTING 3D CON OCLUSIÓN
   // ==========================================
   for (int x = 0; x < SCR_W; x++) {
     float cameraX = 2.0f * x / (float)SCR_W - 1.0f; 
@@ -218,9 +291,10 @@ void loop() {
       if (texY < 0) texY = 0;
       if (texY > 15) texY = 15;
 
-      // Determinación de transparencia de ventana
+      // Determinación de transparencia de la ventana (para ver estrellas y rejilla)
       bool isWindowPane = (wallType == 2) && 
-                          !(texX == 0 || texX == 15 || texY == 0 || texY == 15 || texX == 8 || texY == 8);
+                          !(texX == 0 || texX == 15 || texY == 0 || texY == 15 || 
+                            texX == 8 || texY == 8 || (texX == texY && (texX % 3 == 0)));
 
       bool isWallPixel = false;
       
@@ -235,8 +309,15 @@ void loop() {
         }
       }
 
-      if (isWallPixel) {
-        display.drawPixel(x, y, SSD1306_WHITE);
+      // Oclusión dinámica: los píxeles de pared pisan la rejilla del fondo
+      if (isWindowPane) {
+        // En los paneles de ventana transparentes, eliminamos la rejilla para ver el cielo limpio
+        if (y != 27) {
+          display.drawPixel(x, y, SSD1306_BLACK);
+        }
+      } else {
+        // Dibujamos el píxel de la pared o negro para tapar la rejilla
+        display.drawPixel(x, y, isWallPixel ? SSD1306_WHITE : SSD1306_BLACK);
       }
     }
   }
@@ -244,7 +325,7 @@ void loop() {
   // ==========================================
   //  4. AUTOPILOTO INTELIGENTE (Navegación Suave)
   // ==========================================
-  float moveSpeed = 0.042f;
+  float moveSpeed = 0.040f;
   float rotSpeed = 0.038f;
   
   // Raycast de predicción frontal (Look-Ahead)
@@ -266,9 +347,9 @@ void loop() {
   if (distToWall < 1.2f) {
     turningMode = true;
     if (currentTurnRate == 0.0f) {
-      // Evalúa lateralmente para decidir dirección de giro inteligente
-      float leftX = posX - dirY * 0.6f;
-      float leftY = posY + dirX * 0.6f;
+      // Evalúa lateralmente a distancia de 1 bloque para decidir giro inteligente
+      float leftX = posX - dirY * 1.0f;
+      float leftY = posY + dirX * 1.0f;
       int ilx = (int)leftX;
       int ily = (int)leftY;
       
@@ -284,7 +365,7 @@ void loop() {
   }
   
   if (turningMode) {
-    // Giro fluido sobre su propio eje
+    // Giro sobre su eje
     float oldDirX = dirX;
     dirX = dirX * cos(currentTurnRate) - dirY * sin(currentTurnRate);
     dirY = oldDirX * sin(currentTurnRate) + dirY * cos(currentTurnRate);
@@ -292,7 +373,7 @@ void loop() {
     planeX = planeX * cos(currentTurnRate) - planeY * sin(currentTurnRate);
     planeY = oldPlaneX * sin(currentTurnRate) + planeY * cos(currentTurnRate);
   } else {
-    // Avance y oscilación serpenteante natural de vuelo
+    // Avance serpenteante natural de vuelo
     float sway = sin(frameCnt * 0.045f) * 0.012f;
     float oldDirX = dirX;
     dirX = dirX * cos(sway) - dirY * sin(sway);
@@ -311,7 +392,7 @@ void loop() {
   }
 
   // ==========================================
-  //  5. RADAR MINI-MAPA OVERLAY (Esquina Superior Derecha)
+  //  5. RADAR MINI-MAPA CON VECTOR DE MIRA
   // ==========================================
   int mapStartX = SCR_W - 27;
   int mapStartY = 2;
@@ -329,7 +410,7 @@ void loop() {
     }
   }
   
-  // Dibujar posición del jugador parpadeando
+  // Dibujar posición del jugador y vector de dirección parpadeando
   if (frameCnt % 8 < 4) {
     int px = mapStartX + (int)(posX * 2.0f);
     int py = mapStartY + (int)(posY * 2.0f);
@@ -338,16 +419,19 @@ void loop() {
       display.drawPixel(px + 1, py, SSD1306_WHITE);
       display.drawPixel(px, py + 1, SSD1306_WHITE);
       display.drawPixel(px + 1, py + 1, SSD1306_WHITE);
+      
+      // Vector de dirección (mira hacia adelante)
+      int ex = px + (int)(dirX * 3.5f);
+      int ey = py + (int)(dirY * 3.5f);
+      display.drawLine(px, py, ex, ey, SSD1306_WHITE);
     }
   }
 
   // ==========================================
-  //  6. TELEMETRÍA Y BARRA INFERIOR
+  //  6. TELEMETRÍA Y OSCILOSCOPIO ANIMADO
   // ==========================================
   // Línea divisoria
   display.drawFastHLine(0, 54, SCR_W, SSD1306_WHITE);
-  
-  // Fondo de telemetría negro limpio
   display.fillRect(0, 55, SCR_W, 9, SSD1306_BLACK);
   
   display.setTextColor(SSD1306_WHITE);
@@ -359,6 +443,13 @@ void loop() {
   display.print(posX, 1);
   display.print(F(","));
   display.print(posY, 1);
+  
+  // Osciloscopio animado en el centro del HUD
+  int waveCenterY = 59;
+  for (int dx = 0; dx < 12; dx++) {
+    int dy = (int)(sin(frameCnt * 0.35f + dx * 0.7f) * 2.2f);
+    display.drawPixel(53 + dx, waveCenterY + dy, SSD1306_WHITE);
+  }
   
   // Rumbo HDG en grados
   display.setCursor(68, 56);
