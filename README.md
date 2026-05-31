@@ -9,10 +9,11 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 - 🥷 **stick_fight**: Motor de animación por keyframes de peleas de muñecos de palo (estilo Xiaoxiao) con coreografía programada.
 
 ### Gráficos 3D y Demoscene
-- 🔫 **doom_raycaster**: Motor 3D en primera persona usando la técnica matemática de Raycasting (estilo Wolfenstein 3D).
+- 🧭 **doom_raycaster**: Labyrinth Explorer. Motor 3D en primera persona con rejilla de perspectiva 3D Holodeck, skybox rotatorio, ventanas transparentes y autopiloto predictivo inteligente.
 - 🍩 **donut_3d**: Renderizado matemático en tiempo real de un toroide giratorio en 3D (`donut.c`) con cálculo de falsas sombras.
-- ⛰️ **terrain_3d**: Vuelo infinito sobre un terreno de montañas estilo Synthwave, generado proceduralmente con Ruido de Perlin.
+- ⛰️ **terrain_3d**: Simulador de vuelo 3D continuo sobre un valle infinito con montañas sólidas (Painter's Algorithm), estrellas, sol retro, ladeo de nave (banking) y HUD táctico.
 - 💻 **matrix_3d**: Generación de un túnel cilíndrico en 3D en perspectiva con los caracteres descendentes de The Matrix.
+- 🎹 **chiptune_synth**: Generador de sonido retro de 3 canales (16kHz) sobre el DAC nativo, con analizador FFT en tiempo real y terreno 3D reactivo a las frecuencias de la música.
 
 ### Física y Simulaciones
 - ⏳ **falling_sand**: Simulación de física de partículas 2D de arena cayendo y reaccionando a colisiones (Autómatas Celulares).
