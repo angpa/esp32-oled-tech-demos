@@ -40,6 +40,9 @@ Este repositorio contiene una colección de proyectos avanzados y demostraciones
 ### Arte y Meditación
 - 📿 **buddha_wisdom**: Exposición minimalista y solemne de textos del Canon Tibetano (Prajñāpāramitā). Emplea atenuación por hardware puro para que las palabras aparezcan y se desvanezcan en un vacío absoluto.
 
+### 🔧 Pruebas de Concepto y Demos de Hardware
+- **`hardware/`**: Directorio que contiene prototipos, extracción de bitmaps crudos y secuencias cinemáticas experimentales (por ejemplo, `space_war_v2` y `cat_scene`) que sirvieron como base para los juegos finales.
+
 ## 🛠️ Hardware Necesario
 - Placa de desarrollo **ESP32** (NodeMCU, WROOM, etc).
 - Pantalla **OLED SSD1306 (128x64)** conectada por I2C (SDA, SCL).
